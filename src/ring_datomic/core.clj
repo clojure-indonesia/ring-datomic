@@ -10,7 +10,12 @@
 (def config {:server-type :datomic-local
              :system "db"})
 
-(def schema [{:db/ident :movie/title
+(def schema [{:db/ident :movie/id
+              :db/valueType :db.type/long
+              :db/cardinality :db.cardinality/one
+              :db/doc "The ID of the movie"
+              :db/unique :db.unique/identity}
+             {:db/ident :movie/title
               :db/valueType :db.type/string
               :db/cardinality :db.cardinality/one
               :db/doc "The title of the movie"}
@@ -23,13 +28,16 @@
               :db/cardinality :db.cardinality/one
               :db/doc "The year the movie was released in theaters"}])
 
-(def data [{:movie/title "The Goonies"
+(def data [{:movie/id 1
+            :movie/title "The Goonies"
             :movie/genre "action/adventure"
             :movie/release-year 1985}
-           {:movie/title "Commando"
+           {:movie/id 2
+            :movie/title "Commando"
             :movie/genre "thriller/action"
             :movie/release-year 1985}
-           {:movie/title "Repo Man"
+           {:movie/id 3
+            :movie/title "Repo Man"
             :movie/genre "punk dystopia"
             :movie/release-year 1984}])
 
@@ -40,16 +48,18 @@
         _ (d/create-database client {:db-name "movies"})
         conn (d/connect client {:db-name "movies"})]
     (let [xact #(d/transact conn {:tx-data %})
-          title (replace (:uri request) #"/" "")]
+          id (-> (replace (:uri request) #"/" "")
+                 (Integer/parseInt))]
       (xact schema)
       (xact data)
       {:status 200
        :headers {"Content-Type" "text/html"}
-       :body (str (ffirst (d/q '[:find ?e
-                                 :in $ ?title
-                                 :where [?e :movie/title ?title]]
+       :body (str (ffirst (d/q '[:find ?title
+                                 :in $ ?id
+                                 :where [?e :movie/id ?id]
+                                 [?e :movie/title ?title]]
                                (d/db conn)
-                               title)))})))
+                               id)))})))
 
 (defn -main
   [& [port]]
